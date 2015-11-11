@@ -2,16 +2,15 @@
 #include "ui_mainwindow.h"
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
-#include <iostream>
-#include <json/json.h>
-#include <sstream>
+#include "translation.h"
+#include "dbconnection.h"
+#include <QTimer>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
-    ui(new Ui::MainWindow)
+    ui(new Ui::MainWindow), isQuery(false)
 {
     ui->setupUi(this);
-    this->setFixedSize(this->size());
     networkAccessManager = new QNetworkAccessManager(this);
     connect (networkAccessManager, SIGNAL(finished(QNetworkReply*)),
              this, SLOT(slot_queryDone(QNetworkReply*)) );
@@ -22,58 +21,67 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-
-
 void MainWindow::on_pushButton_clicked()
 {
     QString words = ui->lineEdit->text ();
-    if ( words.isEmpty() ) {
-        std::clog << "empty" << std::endl;
+    if ( words.isEmpty() || isQuery ) {
         return ;
     }
+    isQuery = true;
     ui->pushButton->setText (trUtf8 ("查询中...") );
-    QUrl url ("http://openapi.baidu.com/public/2.0/bmt/translate"
-                            "?client_id=dAMINjtqHu18pomUYb5qPUMY"
-                            "&from=en&to=zh&q="  + words );
-    std::clog << qPrintable(url.toString ()) << std::endl;
-    networkAccessManager->get (QNetworkRequest(url) );
+    QUrl url ( Translation::buildTranslateUrl ( words ) );
+    QNetworkReply *reply= networkAccessManager->get (QNetworkRequest(url) );
+
+    QTimer *timer = new QTimer(this);
+    connect (timer, SIGNAL(timeout()),
+             reply, SLOT(deleteLater()) );
+    connect (timer, SIGNAL(timeout()),
+             timer, SLOT(deleteLater()) );
+    connect (timer, SIGNAL(timeout()),
+             this, SLOT(slot_timeout()));
+    timer->start (3000);
+    connect (networkAccessManager, SIGNAL(finished(QNetworkReply*)),
+             timer, SLOT(stop()) );
 }
 
 
 void MainWindow::slot_queryDone(QNetworkReply *networkReply)
 {
     if ( ! networkReply->isFinished ()) {
-        ui->pushButton->setText (trUtf8 ("查询失败 !"));
-        ui->textBrowser->setText (networkReply->errorString ());
+        useLocalTranslation();
     } else {
         ui->pushButton->setText (trUtf8 ("查询"));
         ui->textBrowser->clear ();
-
-        try {
-            std::string content = QString(networkReply->readAll ()).toStdString ();
-            std::clog << content << std::endl;
-            std::istringstream is( content );
-            Json::Value root;
-
-            is >> root;
-
-            Json::Value trans_result(Json::arrayValue) ;
-            trans_result = root["trans_result"];
-
-            for ( Json::Value::iterator it =  trans_result.begin ();
-                  it != trans_result.end () ; ++it ) {
-                  ui->textBrowser->append (
-                            trUtf8 ((*it)["dst"].asCString ()) + "\n");
-
-            }
-        } catch ( std::exception const& e) {
-            ui->textBrowser->setText (e.what ());
+        Translation translation ;
+        translation.setOrigin (ui->lineEdit->text ());
+        translation.parse ( networkReply->readAll () );
+        if ( translation.isValueComplete () ) {
+            DBConnection& dbconnection = DBConnection::getInstance ();
+            dbconnection.store(translation);
+            ui->textBrowser->setText ( translation.buildResultBlock() );
+        } else {
+            useLocalTranslation ();
         }
     }
+    isQuery = false;
 }
 
-/*
-GET /search?q=think&keyfrom=dict.typo&le=eng&spc=go HTTP/1.1
-Connection: Keep-Alive
-Host: dict.youdao.com
-*/
+void MainWindow::slot_timeout ()
+{
+    useLocalTranslation();
+    isQuery = false;
+}
+
+void MainWindow::useLocalTranslation ()
+{
+    ui->textBrowser->setText (trUtf8 ("联网查询失败，尝试使用本地数据！\n"));
+    Translation translation;
+    translation.setOrigin (ui->lineEdit->text ());
+    if ( !DBConnection::getInstance ().retract (translation) ) {
+        ui->textBrowser->append (trUtf8("糟糕, 本地数据也不存在 %0 !").arg (
+                                     translation.getOrigin ()));
+    }
+
+    ui->textBrowser->append ( translation.buildResultBlock () );
+    ui->pushButton->setText (trUtf8 ("查询"));
+}

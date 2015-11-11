@@ -1,5 +1,9 @@
 <RCC>
-    <qresource prefix="/database">
-        <file>dict.db3</file>
+    <qresource prefix="/dbinit">
+        <file>create_tables.sql</file>
+    </qresource>
+    <qresource prefix="/reply/youdao">
+        <file>go.xml</file>
+        <file>url.txt</file>
     </qresource>
 </RCC>

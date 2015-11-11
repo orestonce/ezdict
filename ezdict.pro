@@ -4,7 +4,7 @@
 #
 #-------------------------------------------------
 
-QT       += core gui network
+QT       += core gui network sql
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -13,11 +13,18 @@ TEMPLATE = app
 
 
 SOURCES += main.cpp\
-        mainwindow.cpp
+        mainwindow.cpp \
+    dbconnection.cpp \
+    translation.cpp
 
-HEADERS  += mainwindow.h
+HEADERS  += mainwindow.h \
+    dbconnection.h \
+    translation.h
 
 FORMS    += mainwindow.ui
-QMAKE_LFLAGS += -ljsoncpp
 
-RESOURCES +=
+RESOURCES += \
+    resource.qrc
+
+RC_FILE += \
+    app.rc
