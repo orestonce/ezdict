@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/dbinit"/>
+    <qresource prefix="/reply/youdao">
+        <file>go.xml</file>
+    </qresource>
+</RCC>
