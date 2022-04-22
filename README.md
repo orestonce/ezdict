@@ -7,3 +7,6 @@ qt5 + golang 简易词典
 
 # 下载地址
 https://github.com/orestonce/ezdict/releases/tag/v1.1
+
+# 截图
+![](image/screenshot.png)
