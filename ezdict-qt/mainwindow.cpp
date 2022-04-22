@@ -2,7 +2,6 @@
 #include "ui_mainwindow.h"
 #include "golib.h"
 #include <QMessageBox>
-#include <QXmlStreamReader>
 
 MainWindow::MainWindow(QWidget *parent) :
     ui(new Ui::MainWindow), m_syncUi(parent)
@@ -37,3 +36,9 @@ void MainWindow::on_pushButton_clicked()
     });
 }
 
+
+void MainWindow::on_actionAbout_triggered()
+{
+    QMessageBox::about(this, "关于软件", "ezdict 1.1\n"
+                                     "https://github.com/orestonce/ezdict");
+}
